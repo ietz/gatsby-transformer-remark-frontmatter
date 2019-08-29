@@ -11,7 +11,7 @@
     "strict": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
-    "outDir": "./build",
+    "outDir": ".",
     "rootDir": "./src",
 
     // "typeRoots": [],                       /* List of folders to include type definitions from. */
@@ -19,5 +19,6 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts", "src/**/__test__/*"]
 }

@@ -1,13 +1,15 @@
 {
   "name": "@ietz/gatsby-transformer-remark-frontmatter",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Allows querying frontmatter fields as markdown with gatsby-transformer-remark",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepack": "npm run build && cp -Rav build/* . | ./scripts/parseEmitted.sh build.emit",
-    "postpack": "./scripts/postpack.sh"
+    "prepack": "npm run build",
+    "postpack": "npm run clean",
+    "clean": "ts-emit-clean"
   },
   "repository": {
     "type": "git",
@@ -32,6 +34,10 @@
     "typescript": "^3.5.2"
   },
   "dependencies": {
-    "lodash": "latest"
+    "lodash": "latest",
+    "ts-emit-clean": "^1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
