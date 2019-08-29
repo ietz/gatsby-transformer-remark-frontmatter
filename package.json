@@ -26,8 +26,12 @@
     "gatsby": "^2.4.0"
   },
   "devDependencies": {
+    "@types/lodash": "^4.14.138",
     "gatsby": "^2.9.4",
     "patch-package": "^6.1.2",
     "typescript": "^3.5.2"
+  },
+  "dependencies": {
+    "lodash": "latest"
   }
 }

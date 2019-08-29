@@ -20,7 +20,7 @@ export const isFrontmatterMarkdownNode = ({
   getNode,
 }: {
   node: Node
-  getNode: (id: string) => Node | undefined | null
+  getNode: Function
 }) => {
   const parent = node.parent ? getNode(node.parent) : null
   return !!(parent && isFrontmatterMarkdownFileNode(parent))

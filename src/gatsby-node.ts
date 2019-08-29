@@ -1,3 +1,4 @@
+import _ from 'lodash'
 import { Node, GatsbyNode, NodePluginArgs } from 'gatsby'
 import {
   NODE_TYPE,
@@ -10,24 +11,78 @@ import {
 // all fields set to null
 // we know that the frontmattermd field is ready to be created if all
 // field_names are set to the string ids of the created markdown nodes
+
 const node_field_map: {
-  [markdown_node_id: string]: { [field_name: string]: string | null }
+  [markdown_node_id: string]: object,
 } = {}
+
+const node_remaining_fields: {
+  [markdown_node_id: string]: Set<string>,
+} = {}
+
+
+type Schema = null | SchemaMap | SchemaArray
+interface SchemaMap {[key: string]: Schema}
+interface SchemaArray extends Array<Schema> {}
+
+type Values = {[key: string]: any}
+
+type Structure = {schema: Schema, values: Values}
+
+
+const destructureFrontmatter = (frontmatter: any): Structure => {
+  return {
+    schema: objectSchema(frontmatter),
+    values: objectValues(frontmatter),
+  }
+}
+
+
+const objectSchema = (obj: any): Schema => {
+  if (Array.isArray(obj)) {
+    return obj.map(objectSchema)
+
+  } else if ((typeof obj) === 'object') {
+    return Object.entries(obj)
+      .reduce((acc, [key, value]) => ({...acc, [key]: objectSchema(value)}), {})
+
+  } else {
+    return null
+  }
+}
+
+const objectValues = (obj: any): Values => {
+  if ((typeof obj) === 'object') {
+    return Object.entries(obj)
+      .reduce((acc, [itemKey, item]) => ({
+        ...acc,
+        ..._.mapKeys(objectValues(item), (nestedValue: any, nestedKey: string) => `[${JSON.stringify(itemKey)}]${nestedKey}`)
+      }), {})
+
+  } else {
+    return {'': obj}
+  }
+}
 
 const getFieldMap = (node: Node) => node_field_map[node.id]
 
-const setFieldTo = (node: Node, field_name: string, value: string | null) => {
+const setFieldMarkdownNode = (node: Node, field_name: string, markdownNode: Node) => {
   if (!node_field_map[node.id]) node_field_map[node.id] = {}
+  if (!node_remaining_fields[node.id]) node_remaining_fields[node.id] = new Set<string>()
 
-  // we append ___NODE so that gatsby creates a reference
-  // and we can avoid an unnecessary map later if we do it now
-  node_field_map[node.id][`${field_name}___NODE`] = value
+  const path = _.toPath(field_name)
+  const nodePath = [...path.slice(0, -1), `${path[path.length-1]}___NODE`]
+
+  node_remaining_fields[node.id].delete(field_name)
+
+  const fields = node_field_map[node.id]
+  _.unset(fields, path)
+  _.set(fields, nodePath, markdownNode.id)
 }
 
-const entryIsReady = (
-  val: (typeof node_field_map)[string],
-): val is { [field_name: string]: string } =>
-  Object.keys(val).every(created_id => created_id != null)
+const nodeIsReady = (node: Node) =>
+  node_remaining_fields[node.id]
+  && node_remaining_fields[node.id].size === 0
 
 const shouldUseField = (filter: {
   kind: 'whitelist' | 'blacklist'
@@ -80,13 +135,6 @@ const createFrontmatterMdFileNode = (
   // changes to file nodes
   delete frontmatterMdNode.fields
 
-  // add the new entry to the node_field_map
-  // setting value to null, since we don't
-  // yet have the id of the final MarkdownRemark node
-  setFieldTo(parent, field, null)
-  if (!node_field_map[parent.id]) node_field_map[parent.id] = {}
-  node_field_map[parent.id][`${field}___NODE`] = null
-
   // creation is deferred since we could have a race
   // condition if we create a node before the node_field_map
   // has been entirely populated. onCreateNode is async
@@ -114,17 +162,15 @@ const createFrontmatterNodes = (
   filter: ReturnType<typeof shouldUseField>,
 ) => {
   const { getNode } = helpers
-  if (
-    // we don't need to recursively run over our
-    // newly created markdown nodes. It's unlikely they'll have any frontmatter
-    // anyway
-    isFrontmatterMarkdownNode({ node, getNode }) ||
-    typeof node.frontmatter !== 'object' ||
-    !node.frontmatter
-  )
-    return
+  if (isFrontmatterMarkdownNode({ node, getNode })) return
 
-  const createFns = Object.entries(node.frontmatter).reduce(
+  const {schema, values} = destructureFrontmatter(node.frontmatter)
+  if (!schema) return
+
+  node_field_map[node.id] = schema
+  node_remaining_fields[node.id] = new Set<string>(Object.keys(values))
+
+  const createFns = Object.entries(values).reduce(
     (acc, pair) => {
       if (filter(pair)) {
         acc.push(createFrontmatterMdFileNode(helpers, pair, node))
@@ -162,12 +208,10 @@ const linkNodes = (node: Node, helpers: NodePluginArgs) => {
   const field = fileNode.frontmatterField
 
   // add the node id to the map
-  setFieldTo(markdownNode, field, node.id)
+  setFieldMarkdownNode(markdownNode, field, node)
+  if (!nodeIsReady(markdownNode)) return;
+
   const map_entry = getFieldMap(markdownNode)
-
-  // if all fields are set to strings, frontmattermd field is ready to be created
-  if (!entryIsReady(map_entry)) return
-
   createNodeField({
     name: 'frontmattermd',
     node: markdownNode,
@@ -178,7 +222,7 @@ const linkNodes = (node: Node, helpers: NodePluginArgs) => {
 export const onCreateNode: Exclude<
   GatsbyNode['onCreateNode'],
   undefined
-> = async (helpers, pluginOptions = { plugins: [] }) => {
+  > = async (helpers, pluginOptions = { plugins: [] }) => {
   const { node } = helpers
 
   const { whitelist, blacklist } = pluginOptions as {
