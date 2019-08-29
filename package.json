@@ -1,6 +1,6 @@
 {
-  "name": "gatsby-transformer-remark-frontmatter",
-  "version": "0.1.0",
+  "name": "@ietz/gatsby-transformer-remark-frontmatter",
+  "version": "0.1.1",
   "description": "Allows querying frontmatter fields as markdown with gatsby-transformer-remark",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WhiteAbeLincoln/gatsby-transformer-remark-frontmatter.git"
+    "url": "git+https://github.com/ietz/gatsby-transformer-remark-frontmatter.git"
   },
   "keywords": [
     "gatsby",
